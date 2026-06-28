@@ -203,6 +203,30 @@ Provide an **API that external medical services can connect to**. We supply the 
 
 > Both pages run within a single anonymous Supabase session (Section 3) for that patient. Once the selfie succeeds — or the patient exits — the session is discarded and the kiosk returns to `index` for the next patient.
 
+Implemented foundation files:
+
+| Path | Purpose |
+|---|---|
+| `apps/kiosk/app/_layout.tsx` | Expo Router stack for the two kiosk routes. |
+| `apps/kiosk/app/index.tsx` | Thin route file that renders the check-in wizard. |
+| `apps/kiosk/app/capture.tsx` | Thin route file that renders the photo capture flow. |
+| `apps/kiosk/components/kiosk/CheckInWizard.tsx` | Welcome, intro, identity, reason/notes wizard states. |
+| `apps/kiosk/components/kiosk/CaptureFlow.tsx` | Photo guidance, camera permission, selfie capture, review, submit, and final wait state. |
+| `apps/kiosk/components/kiosk/KioskShell.tsx` | Shared patient-facing screen shell. |
+| `apps/kiosk/components/kiosk/PrimaryButton.tsx` | Shared button primitive. |
+| `apps/kiosk/lib/supabase.ts` | Lazy Supabase client configured from Expo public env vars, with no persisted kiosk session. |
+| `apps/kiosk/lib/patient-session.ts` | Thin client calls for anonymous sign-in, patient row insert/update, selfie upload, Edge Function invocation, and sign-out. |
+| `apps/kiosk/types/patient.ts` | Kiosk-local reason/session/form types. |
+| `apps/kiosk/theme/colors.ts` | Native semantic color palette. |
+
+Required Expo public env vars for the kiosk app:
+
+| Variable | Purpose |
+|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL used by the kiosk client. |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key used for anonymous Auth and RLS-scoped database/storage calls. |
+| `EXPO_PUBLIC_SUPABASE_IMAGE_FUNCTION` | Optional Supabase Edge Function name for image processing; defaults in code to `process-patient-image`. |
+
 #### Current Figma kiosk storyboard mapping
 
 The Figma `Kiosk` section currently contains seven iPad storyboard frames. These are interaction states inside the two logical Expo Router pages above, not seven separate routes:
