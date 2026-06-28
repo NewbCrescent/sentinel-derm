@@ -54,6 +54,20 @@ The only non-JS/TS piece of the repo. Deployed as its own always-on service on R
 - Request/response validation uses Pydantic models — mirrors the `{label, confidence}` classification shape in `TECHNICAL.md §4` (no `box` field — this is a classifier, not a detector).
 - Dependencies are managed with whatever the Python environment file is (`requirements.txt` or `pyproject.toml`) — never `pnpm add` anything here, and never `pip install` into the JS apps.
 
+Current layout:
+```
+services/ml-inference/
+├── app/
+│   ├── main.py        ← FastAPI app; thin POST /classify + GET /health
+│   ├── inference.py   ← YOLO model load (module scope) + classify()
+│   ├── urgency.py     ← urgencyLevel mapping (TECHNICAL.md §7)
+│   ├── summary.py     ← templated, no-LLM summary builder
+│   └── schemas.py     ← Pydantic request/response models
+├── tests/             ← pytest for urgency + summary (pure logic, no model/Supabase)
+├── best.pt            ← trained YOLO classification weights (committed)
+└── requirements.txt
+```
+
 # supabase/
 
 Shared backend config and CLI-generated code.
