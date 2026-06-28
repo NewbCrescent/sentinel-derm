@@ -29,9 +29,9 @@
 
 **What the doctor sees:** A queue of patients ranked by urgency, AI-generated notes, image previews, and possible condition categories.
 
-**Main features:** Image upload, YOLO classification, urgency scoring, patient queue, AI summary, doctor dashboard, notes.
+**Main features:** Image upload, YOLO classification, urgency scoring, patient queue, AI summary, dermatologist web app, notes.
 
-**Stack:** Patient kiosk — React Native with Expo Go (shared device, no accounts), `apps/kiosk`. Dermatologist dashboard — Next.js (authenticated), `apps/dashboard`. Backend — Supabase (Auth, Postgres + Row Level Security, Storage), `supabase/`. ML inference — FastAPI + Ultralytics YOLO26m (classification, not object detection), hosted on Railway (CPU-only, no GPU), `services/ml-inference`.
+**Stack:** Patient kiosk — React Native with Expo Go (shared device, no accounts), `apps/kiosk`. Dermatologist web app — Next.js (authenticated), `apps/dashboard`. Backend — Supabase (Auth, Postgres + Row Level Security, Storage), `supabase/`. ML inference — FastAPI + Ultralytics YOLO26m (classification, not object detection), hosted on Railway (CPU-only, no GPU), `services/ml-inference`.
 
 > [!IMPORTANT]
 > **What the AI must NOT do:** The AI is **not diagnosing patients**. It only helps **prioritize and summarize** cases for doctor review.
@@ -254,17 +254,17 @@ The Figma `Kiosk` section currently contains seven iPad storyboard frames. These
 
 This keeps routing aligned with the product architecture while still letting the kiosk feel like a multi-step wizard.
 
-### Dermatologist Dashboard — Next.js — `apps/dashboard`
+### Dermatologist Web App — Next.js — `apps/dashboard`
 
 | Logical page | Purpose |
 |---|---|
 | `signup` | Entry point for a dermatologist who isn't verified yet. |
 | `login` | Login for an already-verified dermatologist. |
-| `dashboard` | Sidebar with tabs and the most recent patient profiles. |
-| `dashboard/patients` | Scrollable list of the most recent, non-archived patients, with filters (include archived, skin condition/disease type) and sorting. |
-| `dashboard/patients/{patientID}` | A single patient's profile — image, concerns, data, and AI summary. |
+| `patients` | Authenticated landing page and scrollable list of the most recent, non-archived patients, with filters (include archived, skin condition/disease type) and sorting. |
+| `patients/{patientID}` | A single patient's profile — image, concerns, data, and AI summary. |
+| `settings` | Dermatologist account and app settings. |
 
-> `dashboard/patients` is backed by `GET patients` (Section 4), using cursor-based (keyset) pagination rather than offset: this list is a live, frequently-mutating queue (patients checking in, cases being archived) rendered as infinite scroll, and offset pagination (`LIMIT`/`OFFSET`) silently skips or duplicates rows when the underlying order shifts mid-scroll — the wrong tradeoff for a clinical queue. Cursor pagination instead asks for "the next N rows after the last one I saw," keyed on a composite, indexed sort — e.g. `(sort_column, created_at, id)`, with `id` as a tiebreaker so equal sort values don't produce gaps or duplicates. There's no "jump to page N," only next/previous relative to a cursor, which matches the scroll UI here. Full query-parameter list (`status`, `condition`, `sort`, `order`, `cursor`, `limit`) is in Section 4.
+> `patients` is backed by `GET patients` (Section 4), using cursor-based (keyset) pagination rather than offset: this list is a live, frequently-mutating queue (patients checking in, cases being archived) rendered as infinite scroll, and offset pagination (`LIMIT`/`OFFSET`) silently skips or duplicates rows when the underlying order shifts mid-scroll — the wrong tradeoff for a clinical queue. Cursor pagination instead asks for "the next N rows after the last one I saw," keyed on a composite, indexed sort — e.g. `(sort_column, created_at, id)`, with `id` as a tiebreaker so equal sort values don't produce gaps or duplicates. There's no "jump to page N," only next/previous relative to a cursor, which matches the scroll UI here. Full query-parameter list (`status`, `condition`, `sort`, `order`, `cursor`, `limit`) is in Section 4.
 
 ---
 
@@ -274,7 +274,7 @@ A third service, separate from both client apps and from Supabase itself:
 
 - **What it is:** A FastAPI app wrapping the YOLO26m (Ultralytics) model, deployed on Railway as its own always-on service — not a serverless function. The model loads once into memory at process startup and stays there; there's no per-request cold start, and no GPU (Railway doesn't offer GPU instances, so this is CPU-only inference). YOLO26m is run in classification mode, not detection — it scores the whole image against the seven trained classes rather than localizing regions, so there's no `box` output to serialize.
 - **Deployment:** built from a `Dockerfile` in `services/ml-inference` (Railway auto-detects it; `railway.json` pins the builder and sets the `/health` healthcheck). `torch`/`torchvision` install from the PyTorch CPU wheel index (`https://download.pytorch.org/whl/cpu`) to honor the CPU-only constraint and avoid pulling the multi-GB CUDA build. The container binds uvicorn to Railway's injected `$PORT`. In Railway, set the service's **root directory** to `services/ml-inference` so the monorepo builds from the right context. The image targets Python 3.12 for broad Linux wheel coverage even though local dev uses 3.14.
-- **Who calls it:** Not the kiosk directly, and not the dermatologist dashboard directly. `PATCH patients/{patientID}/data` with `{"imageUrl": "<url>"}` (Section 4) is implemented as a Supabase Edge Function rather than a plain PostgREST passthrough: it updates the row, calls this Railway service synchronously with the image, waits for the classification result, writes it back to the row, and only then responds to the kiosk. This is why that route's `500` failure mode is specifically `"AI down"` (Section 4) — that error means *this* service was unreachable or erroring, not Supabase itself.
+- **Who calls it:** Not the kiosk directly, and not the dermatologist web app directly. `PATCH patients/{patientID}/data` with `{"imageUrl": "<url>"}` (Section 4) is implemented as a Supabase Edge Function rather than a plain PostgREST passthrough: it updates the row, calls this Railway service synchronously with the image, waits for the classification result, writes it back to the row, and only then responds to the kiosk. This is why that route's `500` failure mode is specifically `"AI down"` (Section 4) — that error means *this* service was unreachable or erroring, not Supabase itself.
 - **Edge Function implementation:** `supabase/functions/process-patient-image/index.ts` accepts the kiosk's current `{ "patientId": "<uuid>", "imageUrl": "<url>" }` payload and creates its Supabase client with the caller's `Authorization` header plus the anon key. It does not use the service-role key. The `selfies` bucket is private; when the kiosk passes a Supabase Storage URL, the function derives the object path, creates a short-lived signed URL through the caller's RLS-scoped Storage access, and sends that signed URL to Railway.
 - **Contract:** `POST <railway-url>/classify` with `{"imageUrl": "<url>"}` → `{"detections": [{"label": "<acne/eczema/keratosisPilaris/psoriasis/warts/benign/malignant>", "confidence": <float>}], "urgencyLevel": "<routine/urgent/emergent>", "summary": "<txt>"}` — the full combined shape (see the bottom of this section). The Railway service computes all three: `detections` from the model, `urgencyLevel` from the mapping below, and the templated `summary`. The Edge Function stores the response on the patient row as-is. The `detections` field keeps its name for continuity with Section 4 even though the model is a classifier, not a detector; its per-item `{label, confidence}` shape matches the `conditions` field in Section 4.
 - **Error responses (`/classify`):** `400 {"detail": "invalid or unreachable image url"}` when the image URL can't be fetched or decoded (network error, non-2xx, or undecodable image); `500 {"detail": "AI down"}` when the model/inference step itself fails. These map to the kiosk-facing `PATCH patients/{patientID}/data` error rows in Section 4 — the Edge Function translates the FastAPI `detail` shape into that route's `{error}` shape.
@@ -282,7 +282,7 @@ A third service, separate from both client apps and from Supabase itself:
   - `routine` (default) — `acne` alone; `benign` alone (it's explicitly benign by definition); `keratosisPilaris` alone (cosmetic, not actively symptomatic).
   - `urgent` — `eczema` alone; `psoriasis` alone; `warts` alone (chronic/inflammatory conditions that can need active treatment, but aren't a possible-malignancy signal).
   - `emergent` — `malignant` detected, at **any** confidence (a possible-malignancy flag is treated as top priority — confidence-gating this felt wrong given the cost of a missed flag).
-  - This stays inside the AI boundary (Section 1) — it flags "needs faster human eyes," it doesn't diagnose. The `benign`/`malignant` classes edge this system closer to cancer-screening territory than a purely cosmetic/chronic class list would. That raises the stakes on a false negative here — keep the dashboard's language carefully non-diagnostic for this specific class ("flagged for review," not "possible skin cancer").
+  - This stays inside the AI boundary (Section 1) — it flags "needs faster human eyes," it doesn't diagnose. The `benign`/`malignant` classes edge this system closer to cancer-screening territory than a purely cosmetic/chronic class list would. That raises the stakes on a false negative here — keep the web app's language carefully non-diagnostic for this specific class ("flagged for review," not "possible skin cancer").
 - **AI summary:** generated eagerly, in this same Railway `/classify` step, right when the photo is processed, and returned alongside `detections` and `urgencyLevel` for the Edge Function to store on the row. By the time the dermatologist opens the patient page, it's already there — `GET patients/{patientID}` is a plain read, no generation latency, no cache to invalidate, no risk of a duplicate-generation race if the page is opened twice before a cache populates.
 - **Summary method:** templated, no LLM. Built directly from the structured `detections` (e.g. `"Detected: eczema (91.0% confidence)."`, with confidence shown to one decimal place) rather than a real LLM call. No extra cost, no added latency, no third external dependency beyond Supabase and Railway — at the cost of reading less like natural prose. The "AI-generated" wording in Section 1 refers to this template being driven by the AI's detections, not to an LLM writing the sentence.
 - **Combined shape — what gets written to the patient row after processing:**
@@ -323,7 +323,7 @@ Supabase Edge Function secrets required for SMS and inference:
 The Twilio secrets are optional for local non-SMS testing: if any Twilio value or patient phone number is missing, `process-patient-image` skips SMS without blocking classification.
 
 ### Dermatologist — Supabase Realtime
-The dashboard subscribes to database changes directly over WebSockets instead of polling, client-side in the `dashboard` page (Section 6):
+The web app subscribes to database changes directly over WebSockets instead of polling, client-side in the `patients` page (Section 6):
 ```ts
 supabase
   .channel("patients-queue")
@@ -338,7 +338,7 @@ Requires enabling Realtime on the `patients` table first (`alter publication sup
 
 ## Quick Reference for Agents
 
-- **Stack:** React Native kiosk (`apps/kiosk`, patient, anonymous Supabase session) + Next.js dashboard (`apps/dashboard`, dermatologist, real Supabase account) + Supabase (`supabase/`; Auth, Postgres + RLS, Storage) + a separate FastAPI/YOLO26m classification service (`services/ml-inference`) on Railway, CPU-only (Section 7). See Section 3 for auth, Section 7 for the inference service.
+- **Stack:** React Native kiosk (`apps/kiosk`, patient, anonymous Supabase session) + Next.js dermatologist web app (`apps/dashboard`, dermatologist, real Supabase account) + Supabase (`supabase/`; Auth, Postgres + RLS, Storage) + a separate FastAPI/YOLO26m classification service (`services/ml-inference`) on Railway, CPU-only (Section 7). See Section 3 for auth, Section 7 for the inference service.
 - **Auth model:** No login for patients — each kiosk session is a fresh anonymous Supabase Auth session scoped to one patient row, discarded on success/exit. Dermatologists have real accounts gated by `profiles.role = 'dermatologist'`. Access is enforced by Postgres RLS, not by checks inside route handlers — don't add app-level permission logic that duplicates what RLS already guarantees.
 - **Two surfaces:** (1) Patient flow → Initial Page → Capture Page → queue/SMS. (2) Dermatologist flow → website notification → Patient Page → analyze → close ticket.
 - **AI boundary:** classify + summarize + score urgency only. **Never diagnose.**
