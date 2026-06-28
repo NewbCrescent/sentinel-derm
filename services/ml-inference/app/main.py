@@ -13,6 +13,7 @@ import logging
 from fastapi import FastAPI, HTTPException
 
 from . import inference
+from .inference import ImageFetchError
 from .schemas import ClassifyRequest, ClassifyResponse
 from .summary import build_summary
 from .urgency import urgency_level
@@ -32,9 +33,14 @@ def health() -> dict[str, str]:
 def classify(request: ClassifyRequest) -> ClassifyResponse:
     try:
         detections = inference.classify(request.image_url)
+    except ImageFetchError as exc:
+        logger.warning("image fetch failed: %s", exc)
+        raise HTTPException(
+            status_code=400, detail="invalid or unreachable image url"
+        ) from exc
     except Exception as exc:  # broad catch at the route boundary -> "AI down"
         logger.exception("classification failed")
-        raise HTTPException(status_code=502, detail="AI down") from exc
+        raise HTTPException(status_code=500, detail="AI down") from exc
     return ClassifyResponse(
         detections=detections,
         urgency_level=urgency_level(detections),

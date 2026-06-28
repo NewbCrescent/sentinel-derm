@@ -13,7 +13,7 @@ import logging
 import os
 
 import requests
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from ultralytics import YOLO
 
 from .schemas import Detection
@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 
 _MODEL_PATH = os.environ.get("MODEL_PATH", "best.pt")
 _IMAGE_DOWNLOAD_TIMEOUT_S = 15
+
+
+class ImageFetchError(Exception):
+    """The image URL could not be fetched or decoded into an image.
+
+    Distinguished from inference failures so the route can map this to a
+    ``400 "invalid or unreachable image url"`` rather than ``500 "AI down"``
+    (TECHNICAL.md §4/§7).
+    """
 
 # Map the trained model's class indices to the seven canonical camelCase labels
 # (TECHNICAL.md §4). Keyed by index, not display name, so it's robust to the
@@ -41,9 +50,12 @@ _model = YOLO(_MODEL_PATH)
 
 
 def _fetch_image(image_url: str) -> Image.Image:
-    response = requests.get(image_url, timeout=_IMAGE_DOWNLOAD_TIMEOUT_S)
-    response.raise_for_status()
-    return Image.open(io.BytesIO(response.content)).convert("RGB")
+    try:
+        response = requests.get(image_url, timeout=_IMAGE_DOWNLOAD_TIMEOUT_S)
+        response.raise_for_status()
+        return Image.open(io.BytesIO(response.content)).convert("RGB")
+    except (requests.RequestException, UnidentifiedImageError, OSError) as exc:
+        raise ImageFetchError(str(exc)) from exc
 
 
 def classify(image_url: str) -> list[Detection]:
