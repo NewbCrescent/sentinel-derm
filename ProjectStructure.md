@@ -64,6 +64,9 @@ services/ml-inference/
 │   ├── summary.py     ← templated, no-LLM summary builder
 │   └── schemas.py     ← Pydantic request/response models
 ├── tests/             ← pytest for urgency + summary (pure logic, no model/Supabase)
+├── Dockerfile         ← Railway build (CPU-only torch, uvicorn on $PORT)
+├── .dockerignore
+├── railway.json       ← Railway builder + /health healthcheck
 ├── best.pt            ← trained YOLO classification weights (committed)
 └── requirements.txt
 ```
