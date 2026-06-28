@@ -74,6 +74,42 @@ app/.../page.tsx     (React — renders UI, calls server actions)
 - Components go in `components/` under a subdirectory matching their page (e.g. `components/dashboard/`). Never create components inline in `app/` page files.
 - Shared TypeScript types live in `types/`. Auto-generated types (`database.types.ts`) are never hand-edited.
 
+Current layout:
+```
+apps/dashboard/
+├── app/
+│   ├── (protected)/
+│   │   ├── actions.ts                  ← authenticated shell actions, including sign-out
+│   │   ├── layout.tsx                  ← dermatologist profile gate + dashboard shell
+│   │   ├── patients/
+│   │   │   ├── page.tsx                ← `/patients` queue route
+│   │   │   └── [patientID]/
+│   │   │       ├── actions.ts          ← placeholder archive/note actions
+│   │   │       └── page.tsx            ← `/patients/{patientID}` detail route
+│   │   └── settings/
+│   │       └── page.tsx                ← `/settings` account/app status route
+│   ├── login/
+│   │   ├── actions.ts                  ← Supabase password login action
+│   │   └── page.tsx
+│   ├── signup/
+│   │   ├── actions.ts                  ← Supabase account request action
+│   │   └── page.tsx
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx                        ← redirects to `/patients` or `/login`
+├── components/dashboard/               ← UI-only dashboard components
+├── lib/
+│   ├── auth.ts                         ← dermatologist session/profile gate
+│   ├── patients.ts                     ← placeholder queue/detail data helpers
+│   └── supabase-server.ts              ← SSR Supabase client using publishable key
+├── types/
+│   ├── auth.ts
+│   └── patient.ts
+├── next.config.ts
+├── package.json
+└── tsconfig.json
+```
+
 # services/ml-inference (Python, FastAPI)
 
 The only non-JS/TS piece of the repo. Deployed as its own always-on service on Railway (`TECHNICAL.md §7`) — not a serverless function, not part of the pnpm workspace.
