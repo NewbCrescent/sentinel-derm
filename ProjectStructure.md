@@ -24,7 +24,7 @@ sentinel-derm/
 
 Patient-facing. Runs on a shared, unauthenticated device — every screen operates inside one anonymous Supabase session per patient (`TECHNICAL.md §3`). No server actions, no `lib/` layer of its own — this app talks to Supabase directly from the client for everything except the one image-detection step, which hits the Supabase Edge Function described in `TECHNICAL.md §7`.
 
-- File-based routing (Expo Router). The two logical pages from `TECHNICAL.md §6` map directly: `index` (entry/check-in form) and `capture` (selfie).
+- File-based routing (Expo Router). The two logical pages from `TECHNICAL.md §6` map directly: `index` (entry/check-in form) and `capture` (selfie). The current Figma kiosk section has seven iPad storyboard frames; those are wizard states inside these two routes, not seven separate Expo Router pages.
 - `lib/` inside this app is for thin client helpers only (the Supabase client instance, the one Edge Function call) — there is no business logic to centralize here, since RLS is the enforcement layer, not app code.
 - Do not add authentication UI, account screens, or persisted sessions here. The anonymous-session-per-visit model (`TECHNICAL.md §3`) is deliberate; "add a login screen" is a Stop-and-Ask architectural change, not a kiosk bug fix.
 

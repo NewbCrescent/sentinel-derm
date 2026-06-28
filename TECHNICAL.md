@@ -102,6 +102,13 @@ Both clients sit on Supabase (Auth, Postgres, Storage). Access control is enforc
 - `selfies` storage bucket: patients may insert only under their own `patient_owner_id` path prefix; dermatologists may read any path.
 - Because this lives in the database, a route added later without an explicit permission check is still blocked from returning or mutating data the caller isn't allowed to touch.
 
+### Patient entity fields
+- `name` — patient-entered name.
+- `phoneNumber` — patient-entered phone number.
+- `reasonForVisit` — enum-style patient-selected reason (`acne`, `eczema`, `keratosisPilaris`, `psoriasis`, `warts`, `benign`, `malignant`, `other`).
+- `additionalNotes` / `additional_notes TEXT` — optional free-text context from the kiosk's "Anything else you would like to add?" field. API payloads use camelCase (`additionalNotes`); the database column should use snake_case (`additional_notes`) when the schema migration is updated.
+- `patient_owner_id` — UUID from the patient's anonymous Supabase session; RLS scopes patient access to this owner.
+
 ---
 
 ## 4. API Endpoints
@@ -113,7 +120,7 @@ Columns: **Context**, **Req Type**, **Req Body**, **Route**, **Res Status**, **R
 | Context | Req Type | Req Body | Route | Res Status | Res Body |
 |---|---|---|---|---|---|
 | **Patient** | `POST` |  | `patients/{patientID}` | `200` | `{"data": {"id": "<uuid>"}}` |
-| **Patient** | `PATCH` | `{"name": "<txt>", "phoneNumber": "<txt>", "reasonForVisit": "<acne/eczema/keratosisPilaris/psoriasis/warts/benign/malignant/other>"}` | `patients/{patientID}/data` | `200` | `{"data": {"name": "<txt>", "phoneNumber": "<txt>", "reasonForVisit": "<txt>"}}` |
+| **Patient** | `PATCH` | `{"name": "<txt>", "phoneNumber": "<txt>", "reasonForVisit": "<acne/eczema/keratosisPilaris/psoriasis/warts/benign/malignant/other>", "additionalNotes": "<txt-or-null>"}` | `patients/{patientID}/data` | `200` | `{"data": {"name": "<txt>", "phoneNumber": "<txt>", "reasonForVisit": "<txt>", "additionalNotes": "<txt-or-null>"}}` |
 |  |  |  |  | `400` | `{ error: "Try again" }` |
 |  |  |  |  | `500` | `{ error: "DB down" }` |
 | **Patient** | `POST` | `webp/file` | `patients/{patientID}/image` | `200` | `{"data": {"url": "<url>"}}` |
@@ -164,7 +171,7 @@ Columns: **Context**, **Req Type**, **Req Body**, **Route**, **Res Status**, **R
 ### Patient
 
 1. Patient **lands on the Initial Page** (contains a **"reason for visit" dropdown box** — options: `acne`, `eczema`, `keratosisPilaris`, `psoriasis`, `warts`, `benign`, `malignant`, `other`). Worth softening the patient-facing wording for the `benign`/`malignant` options (e.g. "a spot or mole I'm concerned about") even though the stored value stays `malignant` — the raw class name reads clinically for a patient self-report.
-2. Patient **inputs name + phone number + reason for visit** and **submits** (`PATCH patients/{patientID}/data`, Section 4) → Initial Page.
+2. Patient **inputs name + phone number + reason for visit + optional additional notes** and **submits** (`PATCH patients/{patientID}/data`, Section 4) → Initial Page.
 3. Patient **lands on the Capture Page**.
 4. Patient **takes an acceptable selfie and submits** → Capture Page.
 5. Capture Page shows: **"Take a seat and wait for your name to be called out"** → Patient.
@@ -191,10 +198,26 @@ Provide an **API that external medical services can connect to**. We supply the 
 
 | Logical page | Purpose |
 |---|---|
-| `index` | Entry point — where the patient inputs their data (name, phone number, reason for visit) — everything except the image. |
-| `capture` | Where the patient takes their selfie. |
+| `index` | Entry point — where the patient starts check-in and inputs their data (name, phone number, reason for visit, optional additional notes) — everything except the image. |
+| `capture` | Where the patient reviews photo guidance, takes their selfie, and sees the final wait-for-doctor state. |
 
 > Both pages run within a single anonymous Supabase session (Section 3) for that patient. Once the selfie succeeds — or the patient exits — the session is discarded and the kiosk returns to `index` for the next patient.
+
+#### Current Figma kiosk storyboard mapping
+
+The Figma `Kiosk` section currently contains seven iPad storyboard frames. These are interaction states inside the two logical Expo Router pages above, not seven separate routes:
+
+| Figma frame | Purpose | Expo route |
+|---|---|---|
+| `iPad Pro 11" - 1` | Welcome screen with Check In button. | `index` |
+| `iPad Pro 11" - 2` | Transitional intro: "Lets check you in". | `index` |
+| `iPad Pro 11" - 3` | Name and phone number inputs. | `index` |
+| `iPad Pro 11" - 4` | Reason for visit dropdown plus optional additional notes. | `index` |
+| `iPad Pro 11" - 5` | Photo comfort/privacy guidance. | `capture` |
+| `iPad Pro 11" - 6` | Camera/photo capture state. | `capture` |
+| `iPad Pro 11" - 7` | Done state telling the patient the doctor will see them shortly. | `capture` |
+
+This keeps routing aligned with the product architecture while still letting the kiosk feel like a multi-step wizard.
 
 ### Dermatologist Dashboard — Next.js — `apps/dashboard`
 
@@ -273,4 +296,4 @@ Requires enabling Realtime on the `patients` table first (`alter publication sup
 - **Auth model:** No login for patients — each kiosk session is a fresh anonymous Supabase Auth session scoped to one patient row, discarded on success/exit. Dermatologists have real accounts gated by `profiles.role = 'dermatologist'`. Access is enforced by Postgres RLS, not by checks inside route handlers — don't add app-level permission logic that duplicates what RLS already guarantees.
 - **Two surfaces:** (1) Patient flow → Initial Page → Capture Page → queue/SMS. (2) Dermatologist flow → website notification → Patient Page → analyze → close ticket.
 - **AI boundary:** classify + summarize + score urgency only. **Never diagnose.**
-- **Core entities:** Patient (name, phone, `reasonForVisit`, metadata, image, `patient_owner_id`), Profile (dermatologist accounts, `role`), Detection/Conditions (YOLO26m classification, no bounding box; classes: acne, eczema, keratosisPilaris, psoriasis, warts, benign, malignant — shape still provisional, see Section 4), `urgencyLevel` (`routine`/`urgent`/`emergent`, decided, Section 7), `summary` (AI summary, eagerly generated, templated — not LLM-generated, Section 7), Queue, Ticket (open/archived), Note.
+- **Core entities:** Patient (name, phone, `reasonForVisit`, optional `additionalNotes` / `additional_notes TEXT`, metadata, image, `patient_owner_id`), Profile (dermatologist accounts, `role`), Detection/Conditions (YOLO26m classification, no bounding box; classes: acne, eczema, keratosisPilaris, psoriasis, warts, benign, malignant — shape still provisional, see Section 4), `urgencyLevel` (`routine`/`urgent`/`emergent`, decided, Section 7), `summary` (AI summary, eagerly generated, templated — not LLM-generated, Section 7), Queue, Ticket (open/archived), Note.
