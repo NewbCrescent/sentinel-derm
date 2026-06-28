@@ -110,12 +110,21 @@ No database calls in `page.tsx` or components. No business logic in components. 
 
 ---
 
-## Branching
+## Worktrees
 
-- Before starting feature work, the agent creates a new branch off the current branch (typically `main`) rather than committing feature work directly to `main`. Branch naming reuses the `type`/`scope` vocabulary from Commit Discipline: `type/scope-short-description` — e.g. `feat/dashboard-urgency-sort`, `fix/kiosk-capture-retry`.
-- This applies to `feat` work and any multi-file `fix`/`refactor` that already requires a written plan under the Planning Protocol below. It does not apply to single-file typo fixes, comment fixes, or documentation-only edits — those may commit directly to the current branch.
-- The agent pushes its feature branch but does not merge it into `main` itself. Opening a PR and merging are the user's call, same as any other action visible to others.
-- Everything in Commit Discipline (no `--force`, no rewriting published history, no `rm -rf`) applies identically on a feature branch.
+This applies to every agent working in this repo — Claude Code and Codex alike. Both are expected to follow the same convention so neither steps on the other's work.
+
+- Before starting feature work, the agent works in a separate git worktree rather than committing feature work directly in the main worktree on `main`. The underlying mechanism is plain `git worktree add <path> -b type/scope-short-description <base>`, regardless of which agent is driving it:
+  - Claude Code uses the `EnterWorktree` tool (not a manually-run `git worktree add`) to create and switch into the worktree, and `ExitWorktree` to leave it.
+  - Codex runs the equivalent `git worktree add` / `git worktree remove` commands directly, since it doesn't have those tools.
+- Worktree/branch naming reuses the `type`/`scope` vocabulary from Commit Discipline: `type/scope-short-description` — e.g. `feat/dashboard-urgency-sort`, `fix/kiosk-capture-retry`.
+- This applies to `feat` work and any multi-file `fix`/`refactor` that already requires a written plan under the Planning Protocol below. It does not apply to single-file typo fixes, comment fixes, or documentation-only edits — those may commit directly in the current worktree.
+- **Finalizing a worktree** (folding feature work back into `main`):
+  - The agent never merges automatically. When the feature work is complete, it stops and asks the user for explicit permission to merge.
+  - Before asking, it checks whether the merge would be clean (e.g. a dry-run/no-commit merge or `git merge-tree` against the target branch) and reports any conflicts as part of that ask — conflicts are surfaced to the user to decide on, never silently auto-resolved.
+  - Once the user approves and the merge completes cleanly, the agent prunes the worktree: remove the worktree directory and the now-merged branch (`git worktree remove`, `git worktree prune`, or `ExitWorktree action: "remove"` in Claude Code).
+  - If the user doesn't approve the merge, or the feature is abandoned mid-way, the worktree is kept (`ExitWorktree action: "keep"`, or simply left on disk) — it's only removed without a finished, approved merge if the user explicitly says to discard it.
+- Everything in Commit Discipline (no `--force`, no rewriting published history, no `rm -rf`) applies identically inside a feature worktree.
 
 ---
 
