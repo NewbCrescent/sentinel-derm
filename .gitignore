@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js (apps/dashboard)
+.next/
+out/
+
+# Expo (apps/kiosk)
+.expo/
+.expo-shared/
+
+# Python (services/ml-inference)
+.venv/
+__pycache__/
+*.pyc
+
+# Env files — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
