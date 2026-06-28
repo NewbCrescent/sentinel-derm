@@ -59,7 +59,7 @@ apps/kiosk/
 
 # apps/dashboard (Next.js, App Router)
 
-Dermatologist-facing. Real Supabase accounts, gated by `profiles.role = 'dermatologist'`.
+Dermatologist-facing web app. Real Supabase accounts, gated by `profiles.role = 'dermatologist'`. There is no separate authenticated `dashboard` landing route; after login, dermatologists land on the patients list.
 
 Follows the same three-layer pattern as any Next.js App Router project:
 ```
@@ -70,7 +70,7 @@ app/.../page.tsx     (React — renders UI, calls server actions)
 - No database calls in `page.tsx` or components.
 - No business logic in components.
 - API routes in `app/api/` are thin wrappers that call `lib/` functions — same rule as actions.
-- The logical pages in `TECHNICAL.md §6` map onto App Router paths as: `signup` → `app/signup/page.tsx`, `login` → `app/login/page.tsx`, `dashboard` → `app/dashboard/page.tsx`, `dashboard/patients` → `app/dashboard/patients/page.tsx`, `dashboard/patients/{patientID}` → `app/dashboard/patients/[patientID]/page.tsx`.
+- The logical pages in `TECHNICAL.md §6` map onto App Router paths as: `signup` → `app/signup/page.tsx`, `login` → `app/login/page.tsx`, `patients` → `app/patients/page.tsx`, `patients/{patientID}` → `app/patients/[patientID]/page.tsx`, `settings` → `app/settings/page.tsx`.
 - Components go in `components/` under a subdirectory matching their page (e.g. `components/dashboard/`). Never create components inline in `app/` page files.
 - Shared TypeScript types live in `types/`. Auto-generated types (`database.types.ts`) are never hand-edited.
 
