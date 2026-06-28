@@ -1,0 +1,9 @@
+{
+  "name": "sentinel-derm",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "kiosk": "pnpm --filter @sentinel-derm/kiosk start",
+    "kiosk:typecheck": "pnpm --filter @sentinel-derm/kiosk typecheck"
+  }
+}
