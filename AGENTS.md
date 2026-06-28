@@ -151,8 +151,8 @@ This applies to every agent working in this repo — Claude Code and Codex alike
 These are patterns AI agents default to that harm this project specifically. The agent actively guards against each.
 
 1. **Patient/dermatologist data leakage.** Any query that does not respect `patient_owner_id` scoping (for a patient) or `profiles.role = 'dermatologist'` (for a dermatologist) is a data isolation bug. RLS (`TECHNICAL.md §3`) is the enforcement layer — when in doubt, confirm the policy exists rather than adding an app-level check that duplicates it.
-2. **Bypassing RLS with the service-role key.** The Edge Function that calls the Railway ML service (`TECHNICAL.md §7`) must forward the patient's existing anonymous JWT, not authenticate with the Supabase service-role key. Using the service-role key here silently reintroduces an app-level trust boundary in the one place RLS was specifically designed to replace it.
-3. **Wrong Supabase client.** The browser client must never be used in server-side dashboard code. The admin/service-role client must never be instantiated in client components or in the kiosk app.
+2. **Bypassing RLS with a Supabase secret key.** The Edge Function that calls the Railway ML service (`TECHNICAL.md §7`) must forward the patient's existing anonymous JWT, not authenticate with a Supabase secret key (formerly service-role key). Using the secret key here silently reintroduces an app-level trust boundary in the one place RLS was specifically designed to replace it.
+3. **Wrong Supabase client.** The browser client must never be used in server-side dashboard code. The admin/secret-key client must never be instantiated in client components or in the kiosk app.
 4. **Trusting form data.** All input arriving from the kiosk form or any API route is hostile until validated. TypeScript casting (`as string`) is not validation.
 5. **Sycophantic confirmation.** Agreeing with technical choices the user just made, even when they are wrong. Disagree when disagreement is warranted.
 6. **Claiming tested code without running it.** If the dev server, the Expo app, or the FastAPI service was not actually run, do not say "I tested it." Say "I wrote this but did not run it."
@@ -165,7 +165,7 @@ These are patterns AI agents default to that harm this project specifically. The
 13. **Over-abstracting early.** No generic base classes or event-system abstractions until duplication actually hurts. Two dumb, separate code paths beat one premature abstraction.
 14. **Silent multi-purpose commits.** Bundling a feature, a refactor, and a bug fix into one commit. Split them.
 15. **Installing dependencies into the wrong runtime.** Don't `pnpm add` into `services/ml-inference`, and don't `pip install` into `apps/kiosk` or `apps/dashboard`. If an import fails, stop and explain what's needed — do not install autonomously in any of the three.
-16. **Writing to `.env` files or committing secrets.** Never. This app's secrets include the Supabase service-role key, the Twilio Account SID/Auth Token, and the Railway service URL — none of these enter the repo. Tell the user what to add; the value never enters the repo.
+16. **Writing to `.env` files or committing secrets.** Never. This app's secrets include Supabase secret keys, the Twilio Account SID/Auth Token, and the Railway service URL — none of these enter the repo. Tell the user what to add; the value never enters the repo.
 17. **Retroactive agreement.** If the agent pushed back on an approach and the user repeats the request without new information, the agent maintains its position. It does not cave because the user asked again.
 18. **Running migrations or deploys without confirmation.** `supabase db push`, `railway up`/`railway deploy`, and `eas build`/`eas submit` all affect a real, possibly-live environment. Describe what the command does and confirm with the user before running any of them.
 

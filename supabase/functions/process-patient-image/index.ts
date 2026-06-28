@@ -233,12 +233,12 @@ Deno.serve(async (request) => {
   }
 
   let supabaseUrl: string;
-  let supabaseAnonKey: string;
+  let supabasePublishableKey: string;
   let railwayClassifyUrl: string;
 
   try {
     supabaseUrl = getRequiredEnv("SUPABASE_URL");
-    supabaseAnonKey = getRequiredEnv("SUPABASE_ANON_KEY");
+    supabasePublishableKey = getRequiredEnv("SUPABASE_PUBLISHABLE_KEY");
     railwayClassifyUrl = getRequiredEnv("RAILWAY_CLASSIFY_URL");
   } catch (error) {
     return jsonResponse(
@@ -247,7 +247,7 @@ Deno.serve(async (request) => {
     );
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     global: {
       headers: {
         Authorization: authHeader
