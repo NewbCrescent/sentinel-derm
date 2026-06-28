@@ -110,6 +110,15 @@ No database calls in `page.tsx` or components. No business logic in components. 
 
 ---
 
+## Branching
+
+- Before starting feature work, the agent creates a new branch off the current branch (typically `main`) rather than committing feature work directly to `main`. Branch naming reuses the `type`/`scope` vocabulary from Commit Discipline: `type/scope-short-description` — e.g. `feat/dashboard-urgency-sort`, `fix/kiosk-capture-retry`.
+- This applies to `feat` work and any multi-file `fix`/`refactor` that already requires a written plan under the Planning Protocol below. It does not apply to single-file typo fixes, comment fixes, or documentation-only edits — those may commit directly to the current branch.
+- The agent pushes its feature branch but does not merge it into `main` itself. Opening a PR and merging are the user's call, same as any other action visible to others.
+- Everything in Commit Discipline (no `--force`, no rewriting published history, no `rm -rf`) applies identically on a feature branch.
+
+---
+
 ## Planning Protocol
 
 - For any task larger than a single-file change, the agent produces a written plan before writing code. The plan lists the files to be touched (and which runtime each belongs to), the changes per file, any new dependencies, and any stop-and-ask items. The agent waits for user approval before executing.
