@@ -18,7 +18,7 @@ function fail<T>(error: string): AsyncResult<T> {
 
 function unavailable<T>(): AsyncResult<T> {
   return fail(
-    "Kiosk configuration is missing. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY."
+    "Kiosk configuration is missing. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
   );
 }
 

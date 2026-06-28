@@ -227,7 +227,7 @@ Required Expo public env vars for the kiosk app:
 | Variable | Purpose |
 |---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL used by the kiosk client. |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key used for anonymous Auth and RLS-scoped database/storage calls. |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key used for anonymous Auth and RLS-scoped database/storage calls. |
 | `EXPO_PUBLIC_SUPABASE_IMAGE_FUNCTION` | Optional Supabase Edge Function name for image processing; defaults in code to `process-patient-image`. |
 
 Implemented Supabase backend files:
