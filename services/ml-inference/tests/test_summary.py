@@ -12,12 +12,12 @@ def test_empty_summary() -> None:
 
 def test_single_detection_summary() -> None:
     out = build_summary([Detection(label="eczema", confidence=0.91)])
-    assert out == "Detected: eczema (91% confidence)."
+    assert out == "Detected: eczema (91.0% confidence)."
 
 
-def test_confidence_is_rounded_to_whole_percent() -> None:
-    out = build_summary([Detection(label="acne", confidence=0.876)])
-    assert out == "Detected: acne (88% confidence)."
+def test_confidence_shown_to_one_decimal_place() -> None:
+    out = build_summary([Detection(label="acne", confidence=0.9977)])
+    assert out == "Detected: acne (99.8% confidence)."
 
 
 def test_multiple_detections_summary() -> None:
@@ -27,4 +27,4 @@ def test_multiple_detections_summary() -> None:
             Detection(label="acne", confidence=0.5),
         ]
     )
-    assert out == "Detected: eczema (91% confidence), acne (50% confidence)."
+    assert out == "Detected: eczema (91.0% confidence), acne (50.0% confidence)."

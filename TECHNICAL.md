@@ -223,13 +223,13 @@ A third service, separate from both client apps and from Supabase itself:
   - `emergent` — `malignant` detected, at **any** confidence (a possible-malignancy flag is treated as top priority — confidence-gating this felt wrong given the cost of a missed flag).
   - This stays inside the AI boundary (Section 1) — it flags "needs faster human eyes," it doesn't diagnose. The `benign`/`malignant` classes edge this system closer to cancer-screening territory than a purely cosmetic/chronic class list would. That raises the stakes on a false negative here — keep the dashboard's language carefully non-diagnostic for this specific class ("flagged for review," not "possible skin cancer").
 - **AI summary:** generated eagerly, in this same Railway `/classify` step, right when the photo is processed, and returned alongside `detections` and `urgencyLevel` for the Edge Function to store on the row. By the time the dermatologist opens the patient page, it's already there — `GET patients/{patientID}` is a plain read, no generation latency, no cache to invalidate, no risk of a duplicate-generation race if the page is opened twice before a cache populates.
-- **Summary method:** templated, no LLM. Built directly from the structured `detections` (e.g. `"Detected: eczema (91% confidence)."`) rather than a real LLM call. No extra cost, no added latency, no third external dependency beyond Supabase and Railway — at the cost of reading less like natural prose. The "AI-generated" wording in Section 1 refers to this template being driven by the AI's detections, not to an LLM writing the sentence.
+- **Summary method:** templated, no LLM. Built directly from the structured `detections` (e.g. `"Detected: eczema (91.0% confidence)."`, with confidence shown to one decimal place) rather than a real LLM call. No extra cost, no added latency, no third external dependency beyond Supabase and Railway — at the cost of reading less like natural prose. The "AI-generated" wording in Section 1 refers to this template being driven by the AI's detections, not to an LLM writing the sentence.
 - **Combined shape — what gets written to the patient row after processing:**
   ```json
   {
     "detections": [{"label": "eczema", "confidence": 0.91}],
     "urgencyLevel": "urgent",
-    "summary": "Detected: eczema (91% confidence)."
+    "summary": "Detected: eczema (91.0% confidence)."
   }
   ```
 
