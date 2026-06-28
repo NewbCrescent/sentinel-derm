@@ -67,6 +67,7 @@ services/ml-inference/
 ├── Dockerfile         ← Railway build (CPU-only torch, uvicorn on $PORT)
 ├── .dockerignore
 ├── railway.json       ← Railway builder + /health healthcheck
+├── README.md          ← run / Docker build / Railway deploy instructions
 ├── best.pt            ← trained YOLO classification weights (committed)
 └── requirements.txt
 ```
