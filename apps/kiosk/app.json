@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Sentinel Derm Kiosk",
+    "slug": "sentinel-derm-kiosk",
+    "scheme": "sentinelderm",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Sentinel Derm uses the camera so patients can submit a check-in selfie for dermatologist review."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

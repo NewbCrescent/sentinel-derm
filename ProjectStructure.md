@@ -8,6 +8,7 @@ sentinel-derm/
 ├── CLAUDE.md
 ├── ProjectStructure.md      ← this file
 ├── TECHNICAL.md             ← architecture, auth model, API contract, schema-equivalent info
+├── package.json             ← workspace scripts
 ├── pnpm-workspace.yaml      ← apps/*
 ├── apps/
 │   ├── kiosk/               ← React Native + Expo Go, patient-facing
@@ -27,6 +28,32 @@ Patient-facing. Runs on a shared, unauthenticated device — every screen operat
 - File-based routing (Expo Router). The two logical pages from `TECHNICAL.md §6` map directly: `index` (entry/check-in form) and `capture` (selfie). The current Figma kiosk section has seven iPad storyboard frames; those are wizard states inside these two routes, not seven separate Expo Router pages.
 - `lib/` inside this app is for thin client helpers only (the Supabase client instance, the one Edge Function call) — there is no business logic to centralize here, since RLS is the enforcement layer, not app code.
 - Do not add authentication UI, account screens, or persisted sessions here. The anonymous-session-per-visit model (`TECHNICAL.md §3`) is deliberate; "add a login screen" is a Stop-and-Ask architectural change, not a kiosk bug fix.
+
+Current layout:
+```
+apps/kiosk/
+├── app/
+│   ├── _layout.tsx       ← Expo Router stack; no business logic
+│   ├── index.tsx         ← renders the check-in wizard
+│   └── capture.tsx       ← renders the photo capture flow
+├── components/kiosk/
+│   ├── CaptureFlow.tsx   ← photo guidance, camera, review, done states
+│   ├── CheckInWizard.tsx ← welcome, identity, reason/notes wizard states
+│   ├── KioskShell.tsx    ← shared patient-facing screen shell
+│   └── PrimaryButton.tsx ← shared button primitive
+├── lib/
+│   ├── patient-session.ts ← thin Supabase calls for anonymous session, patient row, storage, Edge Function
+│   └── supabase.ts        ← lazy Supabase client using Expo public env vars
+├── theme/
+│   └── colors.ts          ← native semantic color palette
+├── types/
+│   └── patient.ts         ← kiosk-local patient form/session types
+├── app.json
+├── babel.config.js
+├── expo-env.d.ts
+├── package.json
+└── tsconfig.json
+```
 
 # apps/dashboard (Next.js, App Router)
 
