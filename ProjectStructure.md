@@ -16,6 +16,8 @@ sentinel-derm/
 ├── services/
 │   └── ml-inference/        ← FastAPI + Ultralytics YOLO26m (classification), deployed to Railway
 └── supabase/
+    ├── config.toml          ← Supabase CLI project config + Edge Function JWT setting
+    ├── functions/           ← Supabase Edge Functions
     └── migrations/          ← one .sql file defines the schema (see AGENTS.md)
 ```
 
@@ -103,6 +105,21 @@ services/ml-inference/
 
 Shared backend config and CLI-generated code.
 
+Current layout:
+```
+supabase/
+├── config.toml
+├── functions/
+│   └── process-patient-image/
+│       └── index.ts       ← JWT-verified image processing pipeline
+└── migrations/
+    └── 20260628210000_init.sql
+```
+
 # supabase/migrations
 
 One `.sql` file defines the schema — `patients`, `profiles`, `notes`, plus the RLS policies from `TECHNICAL.md §3`. Do not add a second migration file for schema changes; see `AGENTS.md`.
+
+# supabase/functions/process-patient-image
+
+Supabase Edge Function called by the kiosk through `supabase.functions.invoke("process-patient-image")`. It uses the caller's anonymous Supabase JWT, stores the selfie URL/path on the caller-owned patient row, creates a short-lived signed URL for the private `selfies` bucket, calls the Railway `/classify` service, writes back `detections`, `urgency_level`, and `summary`, computes queue position, and sends the optional Twilio SMS.

@@ -108,6 +108,9 @@ Both clients sit on Supabase (Auth, Postgres, Storage). Access control is enforc
 - `reasonForVisit` — enum-style patient-selected reason (`acne`, `eczema`, `keratosisPilaris`, `psoriasis`, `warts`, `benign`, `malignant`, `other`).
 - `additionalNotes` / `additional_notes TEXT` — optional free-text context from the kiosk's "Anything else you would like to add?" field. API payloads use camelCase (`additionalNotes`); the database column should use snake_case (`additional_notes`) when the schema migration is updated.
 - `patient_owner_id` — UUID from the patient's anonymous Supabase session; RLS scopes patient access to this owner.
+- `image_url` / `image_storage_path` — selfie references written by `process-patient-image`; the `selfies` bucket is private, so callers use Storage policies or signed URLs rather than public object access.
+- `detections`, `urgency_level`, `summary` — Railway classification output stored eagerly after image processing. The Edge Function returns `urgencyLevel` to clients but stores `urgency_level` in Postgres.
+- `status`, `archived_at`, `created_at`, `updated_at` — queue/ticket lifecycle metadata. Open patients require `archived_at = null`; archived patients require an archive timestamp.
 
 ---
 
@@ -227,6 +230,14 @@ Required Expo public env vars for the kiosk app:
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key used for anonymous Auth and RLS-scoped database/storage calls. |
 | `EXPO_PUBLIC_SUPABASE_IMAGE_FUNCTION` | Optional Supabase Edge Function name for image processing; defaults in code to `process-patient-image`. |
 
+Implemented Supabase backend files:
+
+| Path | Purpose |
+|---|---|
+| `supabase/config.toml` | Supabase CLI project config; requires JWT verification for `process-patient-image`. |
+| `supabase/migrations/20260628210000_init.sql` | Initial schema, RLS policies, private `selfies` Storage bucket, queue-position helper, and Realtime publication for `patients`. |
+| `supabase/functions/process-patient-image/index.ts` | Edge Function invoked by the kiosk after selfie upload; calls Railway, stores classification output, computes queue position, and sends optional SMS. |
+
 #### Current Figma kiosk storyboard mapping
 
 The Figma `Kiosk` section currently contains seven iPad storyboard frames. These are interaction states inside the two logical Expo Router pages above, not seven separate routes:
@@ -264,6 +275,7 @@ A third service, separate from both client apps and from Supabase itself:
 - **What it is:** A FastAPI app wrapping the YOLO26m (Ultralytics) model, deployed on Railway as its own always-on service — not a serverless function. The model loads once into memory at process startup and stays there; there's no per-request cold start, and no GPU (Railway doesn't offer GPU instances, so this is CPU-only inference). YOLO26m is run in classification mode, not detection — it scores the whole image against the seven trained classes rather than localizing regions, so there's no `box` output to serialize.
 - **Deployment:** built from a `Dockerfile` in `services/ml-inference` (Railway auto-detects it; `railway.json` pins the builder and sets the `/health` healthcheck). `torch`/`torchvision` install from the PyTorch CPU wheel index (`https://download.pytorch.org/whl/cpu`) to honor the CPU-only constraint and avoid pulling the multi-GB CUDA build. The container binds uvicorn to Railway's injected `$PORT`. In Railway, set the service's **root directory** to `services/ml-inference` so the monorepo builds from the right context. The image targets Python 3.12 for broad Linux wheel coverage even though local dev uses 3.14.
 - **Who calls it:** Not the kiosk directly, and not the dermatologist dashboard directly. `PATCH patients/{patientID}/data` with `{"imageUrl": "<url>"}` (Section 4) is implemented as a Supabase Edge Function rather than a plain PostgREST passthrough: it updates the row, calls this Railway service synchronously with the image, waits for the classification result, writes it back to the row, and only then responds to the kiosk. This is why that route's `500` failure mode is specifically `"AI down"` (Section 4) — that error means *this* service was unreachable or erroring, not Supabase itself.
+- **Edge Function implementation:** `supabase/functions/process-patient-image/index.ts` accepts the kiosk's current `{ "patientId": "<uuid>", "imageUrl": "<url>" }` payload and creates its Supabase client with the caller's `Authorization` header plus the anon key. It does not use the service-role key. The `selfies` bucket is private; when the kiosk passes a Supabase Storage URL, the function derives the object path, creates a short-lived signed URL through the caller's RLS-scoped Storage access, and sends that signed URL to Railway.
 - **Contract:** `POST <railway-url>/classify` with `{"imageUrl": "<url>"}` → `{"detections": [{"label": "<acne/eczema/keratosisPilaris/psoriasis/warts/benign/malignant>", "confidence": <float>}], "urgencyLevel": "<routine/urgent/emergent>", "summary": "<txt>"}` — the full combined shape (see the bottom of this section). The Railway service computes all three: `detections` from the model, `urgencyLevel` from the mapping below, and the templated `summary`. The Edge Function stores the response on the patient row as-is. The `detections` field keeps its name for continuity with Section 4 even though the model is a classifier, not a detector; its per-item `{label, confidence}` shape matches the `conditions` field in Section 4.
 - **Error responses (`/classify`):** `400 {"detail": "invalid or unreachable image url"}` when the image URL can't be fetched or decoded (network error, non-2xx, or undecodable image); `500 {"detail": "AI down"}` when the model/inference step itself fails. These map to the kiosk-facing `PATCH patients/{patientID}/data` error rows in Section 4 — the Edge Function translates the FastAPI `detail` shape into that route's `{error}` shape.
 - **Urgency level** (computed in the Railway service from the detections and returned in the `/classify` response): the teledermatology triage literature treats "urgent suspected cancer" as its *most* time-critical tier — more urgent than a generic dermatologic referral — and `malignant` is exactly that signal. 3-tier enum:
@@ -301,6 +313,14 @@ await fetch(`https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`, {
 });
 ```
 Demo note: Twilio trial accounts can only text phone numbers manually verified in the Twilio console first — verify demo phones ahead of time, or sends will silently fail during the live demo.
+
+Supabase Edge Function secrets required for SMS and inference:
+- `RAILWAY_CLASSIFY_URL`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+
+The Twilio secrets are optional for local non-SMS testing: if any Twilio value or patient phone number is missing, `process-patient-image` skips SMS without blocking classification.
 
 ### Dermatologist — Supabase Realtime
 The dashboard subscribes to database changes directly over WebSockets instead of polling, client-side in the `dashboard` page (Section 6):
