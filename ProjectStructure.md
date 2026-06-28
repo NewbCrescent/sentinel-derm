@@ -63,7 +63,7 @@ services/ml-inference/
 │   ├── urgency.py     ← urgencyLevel mapping (TECHNICAL.md §7)
 │   ├── summary.py     ← templated, no-LLM summary builder
 │   └── schemas.py     ← Pydantic request/response models
-├── tests/             ← pytest for urgency + summary (pure logic, no model/Supabase)
+├── tests/             ← pytest for urgency, summary, schema serialization (no model/Supabase)
 ├── Dockerfile         ← Railway build (CPU-only torch, uvicorn on $PORT)
 ├── .dockerignore
 ├── railway.json       ← Railway builder + /health healthcheck
