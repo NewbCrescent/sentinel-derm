@@ -266,6 +266,32 @@ This keeps routing aligned with the product architecture while still letting the
 
 > `patients` is backed by `GET patients` (Section 4), using cursor-based (keyset) pagination rather than offset: this list is a live, frequently-mutating queue (patients checking in, cases being archived) rendered as infinite scroll, and offset pagination (`LIMIT`/`OFFSET`) silently skips or duplicates rows when the underlying order shifts mid-scroll — the wrong tradeoff for a clinical queue. Cursor pagination instead asks for "the next N rows after the last one I saw," keyed on a composite, indexed sort — e.g. `(sort_column, created_at, id)`, with `id` as a tiebreaker so equal sort values don't produce gaps or duplicates. There's no "jump to page N," only next/previous relative to a cursor, which matches the scroll UI here. Full query-parameter list (`status`, `condition`, `sort`, `order`, `cursor`, `limit`) is in Section 4.
 
+Implemented dashboard foundation files:
+
+| Path | Purpose |
+|---|---|
+| `apps/dashboard/app/page.tsx` | Root redirect to `/patients` for authorized dermatologists or `/login` otherwise. |
+| `apps/dashboard/app/login/page.tsx` / `actions.ts` | Login UI and Supabase password sign-in action. |
+| `apps/dashboard/app/signup/page.tsx` / `actions.ts` | Account request UI and Supabase Auth signup action; profile approval remains external. |
+| `apps/dashboard/app/(protected)/layout.tsx` | Authenticated route group that gates access through `profiles.role = 'dermatologist'`. |
+| `apps/dashboard/app/(protected)/patients/page.tsx` | `/patients` queue page using placeholder data behind `lib/`. |
+| `apps/dashboard/app/(protected)/patients/[patientID]/page.tsx` / `actions.ts` | Patient detail page plus placeholder archive/note actions. |
+| `apps/dashboard/app/(protected)/settings/page.tsx` | `/settings` account and app-status page. |
+| `apps/dashboard/components/dashboard/` | UI-only shell, auth form, filters, list, detail, settings, and status components. |
+| `apps/dashboard/lib/auth.ts` | Supabase user/profile gate for dermatologist access. |
+| `apps/dashboard/lib/patients.ts` | Placeholder queue/detail helpers with filter, sort, limit, and cursor-shaped responses. |
+| `apps/dashboard/lib/supabase-server.ts` | Cookie-backed Supabase SSR client using the publishable key only. |
+| `apps/dashboard/types/` | Dashboard-local auth and patient types. |
+
+Required dashboard env vars:
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL used by the Next.js SSR client. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key used for RLS-scoped Auth and profile checks. |
+
+The dashboard foundation intentionally does not use `sb_secret` or a service-role client. Patient list/detail content is placeholder data until the real Supabase-backed `GET patients` implementation replaces `apps/dashboard/lib/patients.ts`.
+
 ---
 
 ## 7. ML Inference Service (Railway) — `services/ml-inference`

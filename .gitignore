@@ -23,6 +23,7 @@ __pycache__/
 # Build output
 dist/
 build/
+*.tsbuildinfo
 
 # OS / editor
 .DS_Store
