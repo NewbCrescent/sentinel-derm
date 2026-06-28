@@ -3,6 +3,9 @@
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "scripts": {
+    "dashboard": "pnpm --filter @sentinel-derm/dashboard dev",
+    "dashboard:build": "pnpm --filter @sentinel-derm/dashboard build",
+    "dashboard:typecheck": "pnpm --filter @sentinel-derm/dashboard typecheck",
     "kiosk": "pnpm --filter @sentinel-derm/kiosk start",
     "kiosk:web": "pnpm --filter @sentinel-derm/kiosk web",
     "kiosk:typecheck": "pnpm --filter @sentinel-derm/kiosk typecheck"

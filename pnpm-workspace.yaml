@@ -1,6 +1,9 @@
 packages:
   - "apps/*"
 
+allowBuilds:
+  sharp: false
+
 overrides:
   "@react-native/metro-config": 0.85.3
   postcss: 8.5.15
